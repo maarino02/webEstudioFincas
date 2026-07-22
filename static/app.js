@@ -32,6 +32,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("fecha-input").value = currentFecha;
     document.getElementById("jornal-fecha-input").value = currentFecha;
     document.getElementById("peso-fecha-input").value = currentFecha;
+    const pFecha = document.getElementById("pago-fecha-input");
+    if (pFecha) pFecha.value = currentFecha;
     
     // Mostrar fecha en formato bonito en el dashboard
     const opcionesFecha = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
@@ -640,6 +642,13 @@ function renderizarListasAsignacion() {
     const fincasChecklist = document.getElementById("assign-fincas-list");
     const trabajadoresChecklist = document.getElementById("assign-trabajadores-list");
     
+    // Pre-rellenar precio de aceituna de la campaña actual
+    const campanaActiva = campanas.find(c => c.id === campanaSeleccionadaId);
+    const configPrecioInput = document.getElementById("config-precio-aceituna");
+    if (configPrecioInput && campanaActiva) {
+        configPrecioInput.value = campanaActiva.precio_aceituna_kg || "";
+    }
+    
     if (fincasChecklist) {
         fincasChecklist.innerHTML = fincasGlobales.map(f => {
             const estaAsignada = fincasCampana.some(fc => fc.id === f.id);
@@ -654,12 +663,19 @@ function renderizarListasAsignacion() {
     
     if (trabajadoresChecklist) {
         trabajadoresChecklist.innerHTML = trabajadoresGlobales.map(t => {
-            const estaAsignado = trabajadoresCampana.some(tc => tc.id === t.id);
+            const estaAsignado = trabajadoresCampana.find(tc => tc.id === t.id);
+            const tarifa = estaAsignado ? estaAsignado.tarifa_hora : 8.0;
             return `
-                <label class="checkbox-item">
-                    <input type="checkbox" name="trabajadores-campana" value="${t.id}" ${estaAsignado ? 'checked' : ''}>
-                    ${t.nombre}
-                </label>
+                <div class="checkbox-item" style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; width: 100%; margin-bottom: 0.25rem;">
+                    <label style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" name="trabajadores-campana" value="${t.id}" ${estaAsignado ? 'checked' : ''}>
+                        <span>${t.nombre}</span>
+                    </label>
+                    <div style="display: flex; align-items: center; gap: 0.2rem;">
+                        <input type="number" name="tarifa-trabajador-${t.id}" step="any" min="0" value="${tarifa}" style="width: 60px; padding: 0.2rem; font-size: 0.85rem;" placeholder="8.00">
+                        <span style="font-size: 0.85rem; color: var(--gray);">€/h</span>
+                    </div>
+                </div>
             `;
         }).join('');
     }
@@ -673,6 +689,7 @@ async function guardarAsignacionesCampana(event) {
     const checkedTrabajadores = Array.from(document.querySelectorAll('input[name="trabajadores-campana"]:checked')).map(el => parseInt(el.value));
     
     try {
+        // 1. Guardar asignación de fincas y trabajadores
         const res = await fetch(`/api/campanas/${campanaSeleccionadaId}/asignar`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -683,7 +700,34 @@ async function guardarAsignacionesCampana(event) {
         });
         
         if (res.ok) {
-            alert("Configuración de campaña guardada.");
+            // 2. Guardar las tarifas de los trabajadores asignados
+            const promesasTarifas = checkedTrabajadores.map(async tid => {
+                const inputTarifa = document.querySelector(`input[name="tarifa-trabajador-${tid}"]`);
+                const tarifaVal = inputTarifa ? parseFloat(inputTarifa.value) : 8.0;
+                return fetch(`/api/campanas/${campanaSeleccionadaId}/trabajadores/${tid}/tarifa`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tarifa_hora: tarifaVal })
+                });
+            });
+            
+            // 3. Guardar precio de la aceituna de la campaña
+            const precioInput = document.getElementById("config-precio-aceituna");
+            if (precioInput && precioInput.value !== "") {
+                const precioVal = parseFloat(precioInput.value);
+                await fetch(`/api/campanas/${campanaSeleccionadaId}/precio`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ precio_aceituna_kg: precioVal })
+                });
+            }
+            
+            await Promise.all(promesasTarifas);
+            
+            // Recargar campañas para actualizar los datos locales de precio
+            await cargarCampanas();
+            
+            alert("Configuración de campaña guardada con éxito.");
             await cargarFincasYTrabajadoresCampana();
             await renderizarListasAsignacion();
             await cargarAsignacionTrabajadoresFinca();
@@ -784,6 +828,13 @@ async function cargarResumenDashboard() {
         
         document.getElementById("dash-rend-arbol").innerText = `Rend. Medio: ${rendArbol}%`;
         document.getElementById("dash-rend-suelo").innerText = `Rend. Medio: ${rendSuelo}%`;
+        
+        if (data.economico) {
+            document.getElementById("dash-gastos-jornal").innerText = `${data.economico.coste_mano_obra.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+            document.getElementById("dash-ingresos-est").innerText = `${data.economico.ingreso_estimado.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+            document.getElementById("dash-precio-aceituna-val").innerText = `Precio Kilo: ${(data.economico.precio_aceituna_kg || 0).toFixed(2)} €`;
+            document.getElementById("dash-beneficio-est").innerText = `${data.economico.beneficio_estimado.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+        }
     } catch (e) {
         console.error("Error al cargar resumen dashboard:", e);
     }
@@ -829,6 +880,11 @@ function switchTab(tabId) {
         cargarComparativaFinca();
     } else if (tabId === 'trabajos') {
         cargarAnalisisTrabajoActivo();
+        cargarGraficoDistribucionTareas();
+    } else if (tabId === 'saldos') {
+        cargarPagosYSaldos();
+    } else if (tabId === 'precios') {
+        cargarPreciosAceiteInfaoliva();
     } else if (tabId === 'config') {
         renderizarListasAsignacion();
         renderizarCatalogosListas();
@@ -1400,6 +1456,9 @@ async function cargarComparativaGeneral() {
             </tr>
         `).join('');
         
+        // Renderizar el gráfico de barras comparativo
+        renderComparativaChart(data);
+        
     } catch (e) {
         console.error("Error al cargar comparativa general:", e);
     }
@@ -1685,10 +1744,13 @@ async function cargarMapaCatastralFinca() {
     
     if (parcelas.length === 0) {
         cardMap.style.display = "none";
+        const wWidget = document.getElementById("widget-tiempo-finca");
+        if (wWidget) wWidget.style.display = "none";
         return;
     }
     
     cardMap.style.display = "flex";
+    cargarPrevisionTiempoFinca(parcelas);
     
     // Calcular superficie total
     const totalArea = parcelas.reduce((acc, curr) => acc + (curr.superficie_m2 || 0), 0);
@@ -1772,4 +1834,399 @@ async function cargarMapaCatastralFinca() {
             }
         }, 150);
     }
+}
+
+// --- FUNCIONES EXTRA DE MEJORAS APROBADAS ---
+
+// 1. Previsión del Tiempo con Open-Meteo
+async function cargarPrevisionTiempoFinca(parcelas) {
+    const widget = document.getElementById("widget-tiempo-finca");
+    const container = document.getElementById("tiempo-dias-container");
+    if (!widget || !container) return;
+    
+    // Buscar la primera parcela con coordenadas
+    const pConCoords = parcelas.find(p => p.latitude && p.longitude);
+    if (!pConCoords) {
+        widget.style.display = "none";
+        return;
+    }
+    
+    try {
+        const { latitude, longitude } = pConCoords;
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=3`);
+        
+        if (res.ok) {
+            const data = await res.json();
+            widget.style.display = "block";
+            
+            const wmoDesc = {
+                0: { emoji: "☀️", text: "Despejado" },
+                1: { emoji: "🌤️", text: "P. Despejado" },
+                2: { emoji: "⛅", text: "P. Nublado" },
+                3: { emoji: "☁️", text: "Nublado" },
+                45: { emoji: "🌫️", text: "Niebla" },
+                48: { emoji: "🌫️", text: "Niebla" },
+                51: { emoji: "🌧️", text: "Llovizna" },
+                53: { emoji: "🌧️", text: "Llovizna" },
+                55: { emoji: "🌧️", text: "Llovizna" },
+                61: { emoji: "🌧️", text: "Lluvia débil" },
+                63: { emoji: "🌧️", text: "Lluvia" },
+                65: { emoji: "🌧️", text: "Lluvia fuerte" },
+                71: { emoji: "🌨️", text: "Nieve" },
+                73: { emoji: "🌨️", text: "Nieve" },
+                75: { emoji: "🌨️", text: "Nieve" },
+                80: { emoji: "🌧️", text: "Chubascos" },
+                81: { emoji: "🌧️", text: "Chubascos" },
+                82: { emoji: "🌧️", text: "Chubascos" },
+                95: { emoji: "⛈️", text: "Tormenta" }
+            };
+            
+            let html = "";
+            const diasSemana = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+            
+            for (let i = 0; i < 3; i++) {
+                const date = new Date(data.daily.time[i]);
+                const diaSem = diasSemana[date.getDay()];
+                const max = Math.round(data.daily.temperature_2m_max[i]);
+                const min = Math.round(data.daily.temperature_2m_min[i]);
+                const code = data.daily.weathercode[i];
+                const desc = wmoDesc[code] || { emoji: "⛅", text: "Nublado" };
+                
+                html += `
+                    <div class="weather-day-card">
+                        <span>${i === 0 ? "Hoy" : diaSem}</span>
+                        <div class="weather-icon" title="${desc.text}">${desc.emoji}</div>
+                        <div class="weather-temp">${max}°/${min}°</div>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        } else {
+            widget.style.display = "none";
+        }
+    } catch (e) {
+        console.error("Error al cargar la previsión del tiempo:", e);
+        widget.style.display = "none";
+    }
+}
+
+// 2. Gráfico Donut de Distribución de Labores
+let tareasChartInstance = null;
+async function cargarGraficoDistribucionTareas() {
+    if (!campanaSeleccionadaId) return;
+    
+    const labores = [
+        { id: 'RECOLECTA', label: 'Recolecta', color: '#5b7c3d' },
+        { id: 'CURAR', label: 'Curar', color: '#3498db' },
+        { id: 'CURAR_VARETAS', label: 'Curar varetas', color: '#2ecc71' },
+        { id: 'ABONO', label: 'Abono', color: '#e67e22' },
+        { id: 'VARETAS', label: 'Varetas', color: '#9b59b6' },
+        { id: 'DESBROZAR', label: 'Desbrozar', color: '#f1c40f' },
+        { id: 'CURAR_HIERBA', label: 'Curar hierba', color: '#e74c3c' },
+        { id: 'TALA', label: 'Tala', color: '#34495e' },
+        { id: 'RECOGER_PIEDRAS', label: 'Recoger piedras', color: '#7f8c8d' }
+    ];
+    
+    try {
+        const promesas = labores.map(l => 
+            fetch(`/api/trabajos/analisis?campana_id=${campanaSeleccionadaId}&trabajo=${l.id}`).then(r => r.json())
+        );
+        const resultados = await Promise.all(promesas);
+        
+        const labels = [];
+        const dataValues = [];
+        const colors = [];
+        
+        resultados.forEach((res, idx) => {
+            if (res.horas_totales > 0) {
+                labels.push(labores[idx].label);
+                dataValues.push(res.horas_totales);
+                colors.push(labores[idx].color);
+            }
+        });
+        
+        const ctx = document.getElementById("tareasChart").getContext("2d");
+        if (tareasChartInstance) {
+            tareasChartInstance.destroy();
+        }
+        
+        if (dataValues.length === 0) {
+            tareasChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Sin labores registradas'],
+                    datasets: [{
+                        data: [1],
+                        backgroundColor: ['#e0e0e0']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+            return;
+        }
+        
+        tareasChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: dataValues,
+                    backgroundColor: colors,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { font: { family: 'Outfit', size: 11 } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const val = context.raw;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const pct = ((val / total) * 100).toFixed(1);
+                                return ` ${context.label}: ${val} h (${pct}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    } catch (e) {
+        console.error("Error al cargar el gráfico de labores:", e);
+    }
+}
+
+// 3. Gráfico de Comparación de Tendencias (Campañas)
+let comparativaChartInstance = null;
+function renderComparativaChart(data) {
+    const ctx = document.getElementById("comparativaChart").getContext("2d");
+    if (comparativaChartInstance) {
+        comparativaChartInstance.destroy();
+    }
+    
+    const sortedData = [...data].reverse();
+    const labels = sortedData.map(row => `Campaña ${row.campana_nombre}`);
+    const kilos = sortedData.map(row => row.kilos_total || 0);
+    const horas = sortedData.map(row => row.total_horas || 0);
+    
+    comparativaChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Producción (Kg)',
+                    data: kilos,
+                    backgroundColor: 'rgba(91, 124, 61, 0.75)',
+                    borderColor: '#5b7c3d',
+                    borderWidth: 1,
+                    yAxisID: 'yKilos',
+                    barPercentage: 0.5
+                },
+                {
+                    label: 'Jornales (Horas)',
+                    data: horas,
+                    backgroundColor: 'rgba(52, 152, 219, 0.75)',
+                    borderColor: '#3498db',
+                    borderWidth: 1,
+                    yAxisID: 'yHoras',
+                    barPercentage: 0.5
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { font: { family: 'Outfit' } } }
+            },
+            scales: {
+                yKilos: {
+                    type: 'linear',
+                    position: 'left',
+                    title: { display: true, text: 'Producción (Kg)', font: { family: 'Outfit', weight: 'bold' } }
+                },
+                yHoras: {
+                    type: 'linear',
+                    position: 'right',
+                    title: { display: true, text: 'Jornales (Horas)', font: { family: 'Outfit', weight: 'bold' } },
+                    grid: { drawOnChartArea: false }
+                },
+                x: {
+                    grid: { drawOnChartArea: false },
+                    ticks: { font: { family: 'Outfit' } }
+                }
+            }
+        }
+    });
+}
+
+// 4. Gestión de Pagos y Saldos de Jornaleros
+async function cargarPagosYSaldos() {
+    if (!campanaSeleccionadaId) return;
+    
+    try {
+        // Llenar dropdown de trabajadores de la campaña
+        const select = document.getElementById("pago-trabajador-select");
+        if (select) {
+            select.innerHTML = trabajadoresCampana.length === 0
+                ? `<option value="">-- No hay jornaleros asignados --</option>`
+                : trabajadoresCampana.map(t => `<option value="${t.id}">${t.nombre}</option>`).join('');
+        }
+        
+        // Historial de pagos
+        const resPagos = await fetch(`/api/pagos?campana_id=${campanaSeleccionadaId}`);
+        const pagos = await resPagos.json();
+        
+        const tbodyPagos = document.getElementById("tabla-pagos-historial-body");
+        if (tbodyPagos) {
+            tbodyPagos.innerHTML = pagos.length === 0
+                ? `<tr><td colspan="5" style="text-align: center; color: var(--gray)">No hay pagos registrados en esta campaña.</td></tr>`
+                : pagos.map(p => `
+                    <tr>
+                        <td>${new Date(p.fecha).toLocaleDateString('es-ES')}</td>
+                        <td><strong>👤 ${p.trabajador_nombre}</strong></td>
+                        <td><strong>${p.importe.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</strong></td>
+                        <td>${p.concepto || '<span style="color: var(--gray);">Sin concepto</span>'}</td>
+                        <td>
+                            <button class="action-icon-btn delete-icon" onclick="eliminarPagoJornalero(${p.id})" title="Eliminar Pago">🗑️</button>
+                        </td>
+                    </tr>
+                `).join('');
+        }
+        
+        // Saldos y Balance Consolidado
+        const resSaldos = await fetch(`/api/resumen/saldos?campana_id=${campanaSeleccionadaId}`);
+        const saldos = await resSaldos.json();
+        
+        const tbodySaldos = document.getElementById("tabla-saldos-body");
+        if (tbodySaldos) {
+            tbodySaldos.innerHTML = saldos.length === 0
+                ? `<tr><td colspan="6" style="text-align: center; color: var(--gray)">No hay datos de saldos.</td></tr>`
+                : saldos.map(s => {
+                    const devengado = s.total_devengado.toLocaleString('es-ES', { minimumFractionDigits: 2 });
+                    const pagado = s.total_pagado.toLocaleString('es-ES', { minimumFractionDigits: 2 });
+                    const saldoVal = s.saldo_pendiente;
+                    const saldoClase = saldoVal > 0 ? 'saldo-positivo' : (saldoVal < 0 ? 'saldo-negativo' : '');
+                    const saldoSigno = saldoVal > 0 ? `+${saldoVal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €` : `${saldoVal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €`;
+                    
+                    return `
+                        <tr>
+                            <td><strong>👤 ${s.trabajador_nombre}</strong></td>
+                            <td>${s.tarifa_hora.toFixed(2)} €/h</td>
+                            <td>${s.total_horas} h</td>
+                            <td><strong>${devengado} €</strong></td>
+                            <td><strong>${pagado} €</strong></td>
+                            <td class="${saldoClase}"><strong>${saldoSigno}</strong></td>
+                        </tr>
+                    `;
+                }).join('');
+        }
+    } catch (e) {
+        console.error("Error al cargar pagos y saldos:", e);
+    }
+}
+
+async function registrarPagoJornalero(event) {
+    event.preventDefault();
+    if (!campanaSeleccionadaId) return;
+    
+    const workerSelect = document.getElementById("pago-trabajador-select");
+    const workerId = workerSelect ? parseInt(workerSelect.value) : null;
+    const fechaInput = document.getElementById("pago-fecha-input");
+    const fecha = fechaInput ? fechaInput.value : "";
+    const importeInput = document.getElementById("pago-importe-input");
+    const importe = importeInput ? parseFloat(importeInput.value) : NaN;
+    const conceptoInput = document.getElementById("pago-concepto-input");
+    const concepto = conceptoInput ? conceptoInput.value : "";
+    
+    if (!workerId || !fecha || isNaN(importe)) {
+        alert("Por favor, rellena todos los campos requeridos.");
+        return;
+    }
+    
+    try {
+        const res = await fetch('/api/pagos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                campana_id: campanaSeleccionadaId,
+                trabajador_id: workerId,
+                fecha: fecha,
+                importe: importe,
+                concepto: concepto
+            })
+        });
+        
+        if (res.ok) {
+            if (importeInput) importeInput.value = "";
+            if (conceptoInput) conceptoInput.value = "";
+            await cargarPagosYSaldos();
+            await cargarResumenDashboard();
+        } else {
+            alert("Error al registrar el pago.");
+        }
+    } catch (e) {
+        console.error("Error al guardar pago:", e);
+    }
+}
+
+async function eliminarPagoJornalero(pagoId) {
+    if (!confirm("¿Estás seguro de que deseas eliminar este pago?")) return;
+    
+    try {
+        const res = await fetch(`/api/pagos/${pagoId}`, { method: 'DELETE' });
+        if (res.ok) {
+            await cargarPagosYSaldos();
+            await cargarResumenDashboard();
+        } else {
+            alert("Error al eliminar el pago.");
+        }
+    } catch (e) {
+        console.error("Error al eliminar pago:", e);
+    }
+}
+
+// 5. Precios de Aceite de Oliva en Directo (Scraping de INFAOLIVA)
+async function cargarPreciosAceiteInfaoliva() {
+    const tbody = document.getElementById("tabla-precios-aceite-body");
+    const fechaSpan = document.getElementById("precio-aceite-fecha-actualizacion");
+    if (!tbody) return;
+    
+    try {
+        const res = await fetch('/api/precios/aceite');
+        const data = await res.json();
+        
+        if (data.status === 'ok' && data.precios && data.precios.length > 0) {
+            fechaSpan.innerText = `Actualizado: ${data.fecha}`;
+            tbody.innerHTML = data.precios.map(p => `
+                <tr>
+                    <td><strong>💧 ${p.categoria}</strong></td>
+                    <td>${p.variedad}</td>
+                    <td class="text-right"><strong>${p.precio} €/Kg</strong></td>
+                </tr>
+            `).join('');
+        } else {
+            fechaSpan.innerText = "Error al actualizar";
+            tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--gray);">No se pudieron obtener cotizaciones en directo en este momento.</td></tr>`;
+        }
+    } catch (e) {
+        console.error("Error al cargar cotizaciones:", e);
+        if (fechaSpan) fechaSpan.innerText = "Error de conexión";
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--gray);">Error de conexión al servidor de cotizaciones.</td></tr>`;
+    }
+}
+
+// 6. Impresión de Informe A4 de Finca
+function imprimirInformeFinca() {
+    window.print();
 }

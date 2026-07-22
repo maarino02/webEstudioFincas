@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 import database
+import requests
+import re
 
 app = FastAPI(title="Cuadrante de Aceituna API")
 
@@ -75,6 +77,19 @@ class AsignacionRequest(BaseModel):
 
 class FincaTrabajadoresRequest(BaseModel):
     trabajador_ids: List[int]
+
+class TarifaRequest(BaseModel):
+    tarifa_hora: float
+
+class PrecioCampanaRequest(BaseModel):
+    precio_aceituna_kg: float
+
+class PagoRequest(BaseModel):
+    campana_id: int
+    trabajador_id: int
+    fecha: str  # YYYY-MM-DD
+    importe: float
+    concepto: Optional[str] = ""
 
 @app.on_event("startup")
 def startup_db():
@@ -359,6 +374,81 @@ def get_trabajos_analisis(
         return database.obtener_analisis_trabajo(campana_id, trabajo)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# --- ENDPOINTS CONTROL ECONÓMICO Y PAGOS ---
+
+@app.put("/api/campanas/{campana_id}/precio")
+def update_precio_campana(campana_id: int, req: PrecioCampanaRequest):
+    try:
+        database.actualizar_precio_aceituna(campana_id, req.precio_aceituna_kg)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/campanas/{campana_id}/trabajadores/{trabajador_id}/tarifa")
+def update_tarifa_trabajador(campana_id: int, trabajador_id: int, req: TarifaRequest):
+    try:
+        database.actualizar_tarifa_trabajador(campana_id, trabajador_id, req.tarifa_hora)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/pagos")
+def read_pagos(campana_id: int = Query(...), trabajador_id: Optional[int] = None):
+    try:
+        return database.obtener_pagos_trabajadores(campana_id, trabajador_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/pagos")
+def create_pago(req: PagoRequest):
+    try:
+        pago_id = database.guardar_pago_trabajador(req.campana_id, req.trabajador_id, req.fecha, req.importe, req.concepto)
+        return {"status": "ok", "pago_id": pago_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/pagos/{pago_id}")
+def delete_pago(pago_id: int):
+    try:
+        database.eliminar_pago_trabajador(pago_id)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/resumen/saldos")
+def read_resumen_saldos(campana_id: int = Query(...)):
+    try:
+        return database.obtener_resumen_saldos(campana_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/precios/aceite")
+def get_live_oil_prices():
+    url = "https://infaoliva.com/"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    try:
+        r = requests.get(url, headers=headers, timeout=10)
+        if r.status_code == 200:
+            html = r.text
+            date_match = re.search(r'<p class="small"><strong>(.*?)</strong></p>', html)
+            fecha = date_match.group(1) if date_match else "Desconocida"
+            
+            rows = re.findall(r'<tr>\s*<td>\s*<strong>(.*?)</strong>\s*</td>\s*<td align="center">(.*?)</td>\s*<td align="right"><strong>(.*?)</strong></td>\s*</tr>', html, re.DOTALL | re.IGNORECASE)
+            
+            result = []
+            for row in rows:
+                result.append({
+                    "categoria": row[0].strip(),
+                    "variedad": row[1].strip(),
+                    "precio": row[2].strip()
+                })
+            return {"status": "ok", "fecha": fecha, "precios": result}
+    except Exception as e:
+        print("Error scraping Infaoliva:", e)
+    return {"status": "error", "message": "No se pudieron obtener los precios en directo."}
 
 # Servir frontend estático
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
