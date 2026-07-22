@@ -56,7 +56,9 @@ def init_db():
         ("superficie_m2", "REAL"),
         ("latitude", "REAL"),
         ("longitude", "REAL"),
-        ("localizacion", "TEXT")
+        ("localizacion", "TEXT"),
+        ("regimen_explotacion", "TEXT NOT NULL DEFAULT 'PROPIA'"),
+        ("porcentaje_propietario", "REAL NOT NULL DEFAULT 0.0")
     ]
     for col_name, col_type in nuevas_columnas_finca:
         if col_name not in fincas_cols:
@@ -371,7 +373,7 @@ def get_global_fincas():
     conn.close()
     return fincas
 
-def add_finca_global(nombre, parcelas=None):
+def add_finca_global(nombre, parcelas=None, regimen_explotacion='PROPIA', porcentaje_propietario=0.0):
     if parcelas is None:
         parcelas = []
     conn = get_connection()
@@ -382,8 +384,8 @@ def add_finca_global(nombre, parcelas=None):
         first = parcelas[0] if parcelas else {}
         
         cursor.execute("""
-            INSERT INTO fincas (nombre, provincia, municipio, poligono, parcela, referencia_catastral, superficie_m2, latitude, longitude, localizacion)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO fincas (nombre, provincia, municipio, poligono, parcela, referencia_catastral, superficie_m2, latitude, longitude, localizacion, regimen_explotacion, porcentaje_propietario)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             nombre.strip().upper(),
             first.get("provincia", "").strip().upper() if first.get("provincia") else None,
@@ -394,7 +396,9 @@ def add_finca_global(nombre, parcelas=None):
             first.get("superficie_m2"),
             first.get("latitude"),
             first.get("longitude"),
-            first.get("localizacion")
+            first.get("localizacion"),
+            regimen_explotacion,
+            porcentaje_propietario
         ))
         finca_id = cursor.lastrowid
         
@@ -749,7 +753,22 @@ def obtener_resumen_general(campana_id):
     """, (campana_id,)).fetchone()[0] or 0.0
     
     kilos_totales = kilos['total_general'] or 0.0
-    ingreso_estimado = kilos_totales * precio_aceituna_kg
+    
+    # Calcular kilos propios netos según el régimen de explotación de la finca
+    kilos_propios = conn.execute("""
+        SELECT SUM(
+            CASE 
+                WHEN COALESCE(f.regimen_explotacion, 'PROPIA') = 'PROPIA' THEN rk.kilos
+                WHEN COALESCE(f.regimen_explotacion, 'PROPIA') = 'ARRENDADA' THEN rk.kilos * (100.0 - COALESCE(f.porcentaje_propietario, 0.0)) / 100.0
+                ELSE 0.0
+            END
+        )
+        FROM registro_kilos rk
+        JOIN fincas f ON rk.finca_id = f.id
+        WHERE rk.campana_id = ?
+    """, (campana_id,)).fetchone()[0] or 0.0
+    
+    ingreso_estimado = kilos_propios * precio_aceituna_kg
     beneficio_estimado = ingreso_estimado - coste_mano_obra
     
     conn.close()
@@ -774,7 +793,8 @@ def obtener_resumen_general(campana_id):
         "kilos": {
             "total_arbol": kilos['total_arbol'] or 0,
             "total_suelo": kilos['total_suelo'] or 0,
-            "total_general": kilos['total_general'] or 0
+            "total_general": kilos['total_general'] or 0,
+            "kilos_propios": kilos_propios
         },
         "rendimientos": {
             "rend_medio_arbol": rendimientos['rend_medio_arbol'] or 0,
@@ -856,7 +876,7 @@ def obtener_trabajadores_finca(campana_id, finca_id):
 
 # --- EDICIÓN Y BORRADO DE CATÁLOGO GLOBAL ---
 
-def editar_finca_global(finca_id, nuevo_nombre, parcelas=None):
+def editar_finca_global(finca_id, nuevo_nombre, parcelas=None, regimen_explotacion='PROPIA', porcentaje_propietario=0.0):
     """Edita el nombre y datos catastrales de una finca en el catálogo global."""
     if parcelas is None:
         parcelas = []
@@ -869,7 +889,7 @@ def editar_finca_global(finca_id, nuevo_nombre, parcelas=None):
         
         cursor.execute("""
             UPDATE fincas 
-            SET nombre = ?, provincia = ?, municipio = ?, poligono = ?, parcela = ?, referencia_catastral = ?, superficie_m2 = ?, latitude = ?, longitude = ?, localizacion = ?
+            SET nombre = ?, provincia = ?, municipio = ?, poligono = ?, parcela = ?, referencia_catastral = ?, superficie_m2 = ?, latitude = ?, longitude = ?, localizacion = ?, regimen_explotacion = ?, porcentaje_propietario = ?
             WHERE id = ?
         """, (
             nuevo_nombre.strip().upper(),
@@ -882,6 +902,8 @@ def editar_finca_global(finca_id, nuevo_nombre, parcelas=None):
             first.get("latitude"),
             first.get("longitude"),
             first.get("localizacion"),
+            regimen_explotacion,
+            porcentaje_propietario,
             finca_id
         ))
         
@@ -1158,8 +1180,8 @@ def consultar_catastro(provincia, municipio, poligono, parcela):
         res_coor = requests.get(url_coor, params=params_coor, timeout=12)
         if res_coor.status_code == 200:
             root_coor = ET.fromstring(res_coor.content)
-            xcen_elem = root_coor.find('.//cat:coor/cat:getcoor/cat:x', namespaces)
-            ycen_elem = root_coor.find('.//cat:coor/cat:getcoor/cat:y', namespaces)
+            xcen_elem = root_coor.find('.//cat:xcen', namespaces)
+            ycen_elem = root_coor.find('.//cat:ycen', namespaces)
             if xcen_elem is not None and ycen_elem is not None:
                 longitude = float(xcen_elem.text)
                 latitude = float(ycen_elem.text)

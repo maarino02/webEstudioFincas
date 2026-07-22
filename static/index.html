@@ -90,6 +90,7 @@
                         <div class="stat-info">
                             <h3>Kilos Recogidos</h3>
                             <p class="stat-value" id="dash-kilos-totales">0 Kg</p>
+                            <span class="stat-sub" id="dash-kilos-propios" style="display: none; font-weight: bold; color: var(--primary);">Parte propia: 0 Kg</span>
                         </div>
                     </div>
                     <div class="card stat-card">
@@ -651,6 +652,22 @@
                                 <input type="text" id="nueva-finca-nombre" required placeholder="Ejem: EL VALLE">
                             </div>
                             
+                            <!-- Régimen de Explotación (Creación) -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem;">
+                                <div class="form-group" style="margin: 0;">
+                                    <label for="nueva-finca-regimen">Régimen de Explotación:</label>
+                                    <select id="nueva-finca-regimen" onchange="toggleRegimenCreacion()" style="width: 100%; padding: 0.45rem; font-size: 0.9rem; border-radius: 6px; border: 1px solid var(--primary-light); background-color: var(--light); font-family: 'Outfit';">
+                                        <option value="PROPIA">Mía completa (Propia)</option>
+                                        <option value="ARRENDADA">Arrendada (A porcentaje)</option>
+                                        <option value="A_JORNAL">A jornal (no importa Kg)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="group-nueva-finca-porcentaje" style="margin: 0; display: none;">
+                                    <label for="nueva-finca-porcentaje">% Propietario (Dueño):</label>
+                                    <input type="number" id="nueva-finca-porcentaje" min="0" max="100" value="0" style="width: 100%; padding: 0.45rem; font-size: 0.9rem; border-radius: 6px; border: 1px solid var(--primary-light); background-color: var(--light); font-family: 'Outfit';">
+                                </div>
+                            </div>
+                            
                             <!-- Datos Catastrales Dinámicos (Creación) -->
                             <div style="background-color: var(--primary-bg); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--primary); margin-bottom: 1.2rem;">
                                 <h4 style="margin: 0 0 0.5rem 0; color: var(--primary-dark); display: flex; align-items: center; gap: 0.3rem;">📍 Parcelas Catastrales</h4>
@@ -780,6 +797,22 @@
                 <div class="form-group">
                     <label for="edit-finca-nombre">Nombre de la Finca:</label>
                     <input type="text" id="edit-finca-nombre" required style="width: 100%; box-sizing: border-box;">
+                </div>
+                
+                <!-- Régimen de Explotación (Edición) -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <div class="form-group" style="margin: 0;">
+                        <label for="edit-finca-regimen">Régimen de Explotación:</label>
+                        <select id="edit-finca-regimen" onchange="toggleRegimenEdicion()" style="width: 100%; padding: 0.45rem; font-size: 0.9rem; border-radius: 6px; border: 1px solid var(--primary-light); background-color: var(--light); font-family: 'Outfit';">
+                            <option value="PROPIA">Mía completa (Propia)</option>
+                            <option value="ARRENDADA">Arrendada (A porcentaje)</option>
+                            <option value="A_JORNAL">A jornal (no importa Kg)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="group-edit-finca-porcentaje" style="margin: 0; display: none;">
+                        <label for="edit-finca-porcentaje">% Propietario (Dueño):</label>
+                        <input type="number" id="edit-finca-porcentaje" min="0" max="100" value="0" style="width: 100%; padding: 0.45rem; font-size: 0.9rem; border-radius: 6px; border: 1px solid var(--primary-light); background-color: var(--light); font-family: 'Outfit';">
+                    </div>
                 </div>
                 
                 <div style="background-color: var(--primary-bg); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--primary);">

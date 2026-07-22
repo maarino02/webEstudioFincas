@@ -1,4 +1,4 @@
-const CACHE_NAME = "aceituna-cache-v18";
+const CACHE_NAME = "aceituna-cache-v19";
 const ASSETS = [
   "/",
   "/index.html",

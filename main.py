@@ -54,6 +54,8 @@ class ParcelaBase(BaseModel):
 class FincaRequest(BaseModel):
     nombre: str
     parcelas: Optional[List[ParcelaBase]] = None
+    regimen_explotacion: Optional[str] = 'PROPIA'
+    porcentaje_propietario: Optional[float] = 0.0
     # Campos heredados por compatibilidad
     provincia: Optional[str] = None
     municipio: Optional[str] = None
@@ -144,7 +146,12 @@ def create_global_finca(req: FincaRequest):
             "localizacion": req.localizacion
         }]
         
-    fid = database.add_finca_global(req.nombre, parcelas)
+    fid = database.add_finca_global(
+        req.nombre, 
+        parcelas, 
+        regimen_explotacion=req.regimen_explotacion or 'PROPIA', 
+        porcentaje_propietario=req.porcentaje_propietario or 0.0
+    )
     if not fid:
         raise HTTPException(status_code=400, detail="La finca ya existe.")
     return {"status": "ok", "finca_id": fid}
@@ -309,7 +316,13 @@ def update_global_finca(finca_id: int, req: FincaRequest):
             "localizacion": req.localizacion
         }]
         
-    ok = database.editar_finca_global(finca_id, req.nombre, parcelas)
+    ok = database.editar_finca_global(
+        finca_id, 
+        req.nombre, 
+        parcelas, 
+        regimen_explotacion=req.regimen_explotacion or 'PROPIA', 
+        porcentaje_propietario=req.porcentaje_propietario or 0.0
+    )
     if not ok:
         raise HTTPException(status_code=400, detail="El nombre ya existe o no es válido.")
     return {"status": "ok"}

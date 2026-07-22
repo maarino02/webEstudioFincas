@@ -217,10 +217,18 @@ function renderizarCatalogosListas() {
                 } else if (f.poligono && f.parcela) {
                     catastralInfo = `<small style="display:block; color:var(--gray); margin-top:0.2rem; font-size:0.8rem;">📍 Pol. ${f.poligono} Parc. ${f.parcela} ${f.superficie_m2 ? `(${(f.superficie_m2/10000).toFixed(2)} ha)` : ''}</small>`;
                 }
+                let regimenText = "Mía completa";
+                if (f.regimen_explotacion === "ARRENDADA") {
+                    regimenText = `Arrendada (${100 - (f.porcentaje_propietario || 0)}% mío / ${f.porcentaje_propietario}% dueño)`;
+                } else if (f.regimen_explotacion === "A_JORNAL") {
+                    regimenText = "A jornal (no importan Kg)";
+                }
+                const regimenBadge = `<span style="font-size:0.75rem; background-color: var(--primary-light); color: var(--primary-dark); padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: bold; font-family:'Outfit'; margin-left: 0.5rem;">📋 ${regimenText}</span>`;
+
                 return `
                     <div class="catalog-item" style="flex-direction: column; align-items: flex-start; gap: 0.2rem; padding: 0.75rem 1rem;">
                         <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
-                            <span>🚜 <strong>${f.nombre}</strong></span>
+                            <span>🚜 <strong>${f.nombre}</strong> ${regimenBadge}</span>
                             <div class="catalog-item-actions">
                                 <button class="action-icon-btn" onclick="abrirModalEditarFinca(${f.id})" title="Editar Finca">✏️</button>
                                 <button class="action-icon-btn delete-icon" onclick="eliminarFincaGlobal(${f.id}, '${f.nombre}')" title="Eliminar Finca de Raíz">🗑️</button>
@@ -331,9 +339,14 @@ async function crearFincaGlobal(event) {
         }
     }
     
+    const regimen = document.getElementById("nueva-finca-regimen").value;
+    const porcentaje = parseFloat(document.getElementById("nueva-finca-porcentaje").value) || 0;
+    
     const body = {
         nombre: nombre,
-        parcelas: parcelasCreacionTemporales
+        parcelas: parcelasCreacionTemporales,
+        regimen_explotacion: regimen,
+        porcentaje_propietario: porcentaje
     };
     
     try {
@@ -349,6 +362,10 @@ async function crearFincaGlobal(event) {
             document.getElementById("nueva-finca-parcela").value = "";
             document.getElementById("nueva-finca-municipio").value = "ALCALA LA REAL";
             document.getElementById("nueva-finca-provincia").value = "JAEN";
+            document.getElementById("nueva-finca-regimen").value = "PROPIA";
+            document.getElementById("nueva-finca-porcentaje").value = "0";
+            toggleRegimenCreacion();
+            
             parcelasCreacionTemporales = [];
             renderizarParcelasCreacion();
             
@@ -453,6 +470,11 @@ function abrirModalEditarFinca(id) {
     document.getElementById("edit-finca-id").value = finca.id;
     document.getElementById("edit-finca-nombre").value = finca.nombre;
     
+    // Rellenar campos de régimen de explotación
+    document.getElementById("edit-finca-regimen").value = finca.regimen_explotacion || 'PROPIA';
+    document.getElementById("edit-finca-porcentaje").value = finca.porcentaje_propietario || 0;
+    toggleRegimenEdicion();
+    
     // Rellenar campos de búsqueda por defecto
     document.getElementById("edit-finca-poligono").value = "";
     document.getElementById("edit-finca-parcela").value = "";
@@ -505,9 +527,14 @@ async function guardarEdicionFinca(event) {
         }
     }
     
+    const regimen = document.getElementById("edit-finca-regimen").value;
+    const porcentaje = parseFloat(document.getElementById("edit-finca-porcentaje").value) || 0;
+    
     const body = {
         nombre: nombre,
-        parcelas: parcelasEdicionTemporales
+        parcelas: parcelasEdicionTemporales,
+        regimen_explotacion: regimen,
+        porcentaje_propietario: porcentaje
     };
     
     try {
@@ -819,7 +846,20 @@ async function cargarResumenDashboard() {
         const res = await fetch(`/api/resumen?campana_id=${campanaSeleccionadaId}`);
         const data = await res.json();
         
-        document.getElementById("dash-kilos-totales").innerText = `${data.kilos.total_general.toLocaleString('es-ES')} Kg`;
+        const totalGeneral = data.kilos.total_general || 0;
+        const totalPropios = data.kilos.kilos_propios !== undefined ? data.kilos.kilos_propios : totalGeneral;
+        document.getElementById("dash-kilos-totales").innerText = `${totalGeneral.toLocaleString('es-ES')} Kg`;
+        
+        const pPropios = document.getElementById("dash-kilos-propios");
+        if (pPropios) {
+            if (Math.abs(totalGeneral - totalPropios) > 0.01) {
+                pPropios.innerText = `Parte propia: ${totalPropios.toLocaleString('es-ES')} Kg`;
+                pPropios.style.display = "block";
+            } else {
+                pPropios.style.display = "none";
+            }
+        }
+        
         document.getElementById("dash-kilos-arbol").innerText = `${data.kilos.total_arbol.toLocaleString('es-ES')} Kg`;
         document.getElementById("dash-kilos-suelo").innerText = `${data.kilos.total_suelo.toLocaleString('es-ES')} Kg`;
         
@@ -1756,9 +1796,17 @@ async function cargarMapaCatastralFinca() {
     const totalArea = parcelas.reduce((acc, curr) => acc + (curr.superficie_m2 || 0), 0);
     const totalHa = (totalArea / 10000).toFixed(2);
     
+    let regimenText = "Mía completa (Propia)";
+    if (finca.regimen_explotacion === "ARRENDADA") {
+        regimenText = `Arrendada (${100 - (finca.porcentaje_propietario || 0)}% propio / ${finca.porcentaje_propietario}% propietario)`;
+    } else if (finca.regimen_explotacion === "A_JORNAL") {
+        regimenText = "Trabajada a jornal";
+    }
+
     // Renderizar detalles de todas las parcelas
     let html = `
         <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.5rem; width: 100%;">
+            <div>📋 <strong>Régimen:</strong> <strong>${regimenText}</strong></div>
             <div>📐 <strong>Superficie Total:</strong> <strong>${totalArea.toLocaleString('es-ES')} m² (${totalHa} ha)</strong></div>
             <div style="font-size: 0.9rem; border-top: 1px solid var(--border); padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem; max-height: 250px; overflow-y: auto;">
     `;
@@ -2230,3 +2278,22 @@ async function cargarPreciosAceiteInfaoliva() {
 function imprimirInformeFinca() {
     window.print();
 }
+
+// 7. Funciones para ocultar/mostrar porcentaje de arrendamiento
+function toggleRegimenCreacion() {
+    const reg = document.getElementById("nueva-finca-regimen").value;
+    const grp = document.getElementById("group-nueva-finca-porcentaje");
+    if (grp) {
+        grp.style.display = (reg === "ARRENDADA") ? "block" : "none";
+    }
+}
+window.toggleRegimenCreacion = toggleRegimenCreacion;
+
+function toggleRegimenEdicion() {
+    const reg = document.getElementById("edit-finca-regimen").value;
+    const grp = document.getElementById("group-edit-finca-porcentaje");
+    if (grp) {
+        grp.style.display = (reg === "ARRENDADA") ? "block" : "none";
+    }
+}
+window.toggleRegimenEdicion = toggleRegimenEdicion;
