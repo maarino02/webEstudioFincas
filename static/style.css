@@ -1,0 +1,1041 @@
+/* --- VARIABLES Y SISTEMA DE DISEÑO --- */
+:root {
+    --primary: #4F5D2F;          /* Verde Oliva Profundo */
+    --primary-light: #6F8146;
+    --primary-bg: #F4F6F1;
+    
+    --secondary: #D4AF37;        /* Dorado Aceite de Oliva */
+    --secondary-light: #E9D282;
+    
+    --dark: #2B331A;             /* Gris/Verde Oscuro */
+    --light: #FCFDFB;
+    --gray: #8F9980;
+    
+    --bg-app: #F7F9F5;
+    --card-bg: #FFFFFF;
+    --border: #E3E8DC;
+    
+    --font: 'Outfit', sans-serif;
+    
+    --shadow-sm: 0 2px 8px rgba(79, 93, 47, 0.05);
+    --shadow: 0 10px 30px rgba(79, 93, 47, 0.08);
+    --shadow-lg: 0 20px 40px rgba(79, 93, 47, 0.12);
+    
+    --radius-sm: 8px;
+    --radius: 16px;
+    --radius-lg: 24px;
+    
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* --- ESTILOS GENERALES Y RESETS --- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font);
+    background-color: var(--bg-app);
+    color: var(--dark);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+}
+
+/* --- CONTENEDOR DE LA APP (GRID RESPONSIVE) --- */
+.app-container {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: 100vh;
+}
+
+/* --- MENU LATERAL (SIDEBAR) --- */
+.app-header {
+    background-color: var(--primary);
+    color: var(--light);
+    padding: 2.5rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+    border-right: 1px solid var(--primary-light);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    z-index: 10;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.logo {
+    font-size: 2.2rem;
+}
+
+.brand h1 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--light);
+}
+
+.nav-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.nav-btn {
+    background: none;
+    border: none;
+    color: rgba(252, 253, 251, 0.7);
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-size: 1rem;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: var(--transition);
+}
+
+.nav-btn:hover {
+    background-color: rgba(252, 253, 251, 0.08);
+    color: var(--light);
+}
+
+.nav-btn.active {
+    background-color: var(--secondary);
+    color: var(--dark);
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+}
+
+/* --- AREA DE CONTENIDO PRINCIPAL --- */
+.app-main {
+    padding: 2.5rem;
+    max-width: 1400px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+.tab-content {
+    display: none;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: var(--transition);
+}
+
+.tab-content.active {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* --- TARJETA DE BIENVENIDA (HERO) --- */
+.hero-card {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    color: var(--light);
+    padding: 2.5rem;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-card::before {
+    content: "🫒";
+    position: absolute;
+    right: -20px;
+    bottom: -30px;
+    font-size: 10rem;
+    opacity: 0.15;
+}
+
+.hero-card h2 {
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.hero-card p {
+    color: rgba(252, 253, 251, 0.8);
+    font-size: 1.1rem;
+}
+
+/* --- TARJETAS E INFO GRID --- */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.stat-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border);
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    transition: var(--transition);
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow);
+}
+
+.stat-icon {
+    font-size: 2.5rem;
+    background-color: var(--primary-bg);
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+}
+
+.stat-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-info h3 {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--gray);
+    font-weight: 600;
+}
+
+.stat-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--dark);
+    margin-top: 0.1rem;
+}
+
+.stat-sub {
+    font-size: 0.8rem;
+    color: var(--primary-light);
+    font-weight: 500;
+}
+
+/* --- WIDGETS --- */
+.dashboard-widgets {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+}
+
+.widget {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.widget h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid var(--primary-bg);
+    padding-bottom: 0.5rem;
+}
+
+.fincas-quick-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1rem;
+}
+
+.quick-finca-btn {
+    background-color: var(--primary-bg);
+    border: 1px solid var(--border);
+    color: var(--dark);
+    padding: 1.25rem 1rem;
+    border-radius: var(--radius-sm);
+    font-family: var(--font);
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: var(--transition);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.quick-finca-btn:hover {
+    background-color: var(--primary);
+    color: var(--light);
+    transform: scale(1.03);
+    box-shadow: var(--shadow-sm);
+}
+
+.quick-finca-btn .icon {
+    font-size: 1.5rem;
+}
+
+/* --- REGISTRO DE FINCAS TAB --- */
+.finca-selector-bar {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    box-shadow: var(--shadow-sm);
+}
+
+.finca-selector-bar .form-group {
+    flex: 1;
+    min-width: 240px;
+}
+
+.finca-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 0.8fr;
+    gap: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+    .finca-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.card h2 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    border-bottom: 2px solid var(--primary-bg);
+    padding-bottom: 0.5rem;
+}
+
+.card-desc {
+    font-size: 0.9rem;
+    color: var(--gray);
+    margin-top: -0.8rem;
+}
+
+/* --- COMPONENTES DE ENTRADA (TRABAJADORES HORAS) --- */
+.workers-input-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.worker-row {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    align-items: center;
+    background-color: var(--primary-bg);
+    padding: 1rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    gap: 1rem;
+}
+
+@media (max-width: 600px) {
+    .worker-row {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+}
+
+.worker-name {
+    font-weight: 600;
+    color: var(--dark);
+    font-size: 1.05rem;
+    text-transform: uppercase;
+}
+
+.worker-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.hour-input-wrapper {
+    display: flex;
+    align-items: center;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.hour-btn {
+    background: none;
+    border: none;
+    width: 38px;
+    height: 38px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    color: var(--primary);
+    transition: var(--transition);
+}
+
+.hour-btn:hover {
+    background-color: var(--primary-bg);
+}
+
+.hour-input {
+    width: 50px;
+    border: none;
+    text-align: center;
+    font-family: var(--font);
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--dark);
+    padding: 0.25rem 0;
+}
+
+/* Quitar flechas nativas del input */
+.hour-input::-webkit-outer-spin-button,
+.hour-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.presets-container {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.preset-btn {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--primary-light);
+    padding: 0.4rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-family: var(--font);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.preset-btn:hover {
+    background-color: var(--primary-light);
+    color: var(--light);
+    border-color: var(--primary-light);
+}
+
+.preset-btn.active {
+    background-color: var(--primary);
+    color: var(--light);
+    border-color: var(--primary);
+}
+
+/* --- COMPONENTES DE ENTRADA (KILOS / FORM) --- */
+.prod-section {
+    background-color: var(--primary-bg);
+    padding: 1.25rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    margin-bottom: 1rem;
+}
+
+.prod-section h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--primary-light);
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+}
+
+.form-row {
+    display: flex;
+    gap: 1rem;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--dark);
+}
+
+input[type="text"],
+input[type="number"],
+input[type="date"],
+select,
+textarea {
+    width: 100%;
+    padding: 0.85rem 1rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    font-family: var(--font);
+    font-size: 0.95rem;
+    background-color: var(--card-bg);
+    color: var(--dark);
+    transition: var(--transition);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 93, 47, 0.1);
+}
+
+/* --- BOTONES --- */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.85rem 1.5rem;
+    border-radius: var(--radius-sm);
+    font-family: var(--font);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: var(--transition);
+    gap: 0.5rem;
+}
+
+.btn-primary {
+    background-color: var(--primary);
+    color: var(--light);
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-light);
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary {
+    background-color: var(--secondary);
+    color: var(--dark);
+}
+
+.btn-secondary:hover {
+    background-color: var(--secondary-light);
+}
+
+.btn-block {
+    display: flex;
+    width: 100%;
+}
+
+/* --- TABLAS RESPONSIVAS --- */
+.table-responsive {
+    overflow-x: auto;
+    width: 100%;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 0.95rem;
+}
+
+.data-table th,
+.data-table td {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.data-table th {
+    background-color: var(--primary-bg);
+    color: var(--primary);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.data-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.data-table tbody tr:hover td {
+    background-color: var(--primary-bg);
+}
+
+/* --- AJUSTES TABLAS RESUMENES FINALES --- */
+.resumen-kilos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.resumen-card {
+    background: linear-gradient(135deg, var(--card-bg) 0%, var(--primary-bg) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.resumen-card h4 {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    color: var(--gray);
+    letter-spacing: 0.5px;
+}
+
+.resumen-card .value {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.resumen-card .subtext {
+    font-size: 0.9rem;
+    color: var(--primary-light);
+    font-weight: 500;
+}
+
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+/* --- PWA RESPONSIVE Y DISEÑO MOVIL --- */
+@media (max-width: 768px) {
+    .app-container {
+        grid-template-columns: 1fr;
+        padding-bottom: 70px; /* Espacio para el menú inferior */
+    }
+
+    .app-header {
+        height: auto;
+        padding: 1rem 1.5rem;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        border-right: none;
+        border-bottom: 1px solid var(--primary-light);
+        position: sticky;
+        top: 0;
+        overflow-y: visible;
+    }
+
+    .brand .logo {
+        font-size: 1.6rem;
+    }
+
+    .brand h1 {
+        font-size: 1.1rem;
+    }
+
+    /* Ocultar botones de texto del header superior en móvil */
+    .nav-menu {
+        display: none; /* Quitamos del lateral superior */
+    }
+
+    /* Creamos una barra de navegación flotante inferior para móviles */
+    .nav-menu {
+        display: flex;
+        flex-direction: row;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background-color: var(--primary);
+        border-top: 1px solid var(--primary-light);
+        padding: 0.5rem;
+        justify-content: space-around;
+        gap: 0;
+        z-index: 100;
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+    }
+
+    .nav-btn {
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.5rem;
+        font-size: 0.75rem;
+        flex: 1;
+        text-align: center;
+        color: rgba(252, 253, 251, 0.6);
+        border-radius: var(--radius-sm);
+    }
+    
+    .nav-btn .icon {
+        font-size: 1.25rem;
+    }
+
+    .nav-btn.active {
+        background: none;
+        color: var(--secondary);
+        box-shadow: none;
+        font-weight: 600;
+    }
+
+    .app-main {
+        padding: 1.25rem;
+    }
+}
+
+/* --- ESTILOS ADICIONALES PARA SOPORTE MULTICAMPAÑA --- */
+.campaign-selector-box {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    background-color: rgba(252, 253, 251, 0.08);
+    padding: 1rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(252, 253, 251, 0.15);
+    margin-bottom: 0.5rem;
+}
+
+.campaign-selector-box label {
+    color: rgba(252, 253, 251, 0.7);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.campaign-selector-box select {
+    background-color: var(--light);
+    color: var(--dark);
+    border: none;
+    font-weight: 600;
+    padding: 0.5rem;
+    border-radius: var(--radius-sm);
+}
+
+.card-assign {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.assign-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .assign-grid {
+        grid-template-columns: 1fr;
+    }
+    .campaign-selector-box {
+        margin-bottom: 0;
+        padding: 0.5rem;
+    }
+    .campaign-selector-box label {
+        display: none;
+    }
+    .campaign-selector-box select {
+        padding: 0.35rem 0.5rem;
+        font-size: 0.85rem;
+    }
+}
+
+.assign-column {
+    background-color: var(--primary-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.assign-column h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--primary);
+    border-bottom: 1.5px solid var(--border);
+    padding-bottom: 0.5rem;
+    text-transform: uppercase;
+}
+
+.checkbox-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    max-height: 250px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-size: 0.95rem;
+    background-color: var(--card-bg);
+    padding: 0.65rem 0.85rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    transition: var(--transition);
+}
+
+.checkbox-item:hover {
+    border-color: var(--primary-light);
+    background-color: var(--primary-bg);
+}
+
+.checkbox-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+/* --- PRESETS GLOBALES --- */
+.global-presets-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    background-color: var(--primary-bg);
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    margin-bottom: 1.25rem;
+}
+
+.global-presets-bar span {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* --- ENTREGAS DE ACEITUNA --- */
+.deliveries-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.delivery-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: var(--primary-bg);
+    border: 1px solid var(--border);
+    padding: 0.85rem 1.25rem;
+    border-radius: var(--radius-sm);
+    transition: var(--transition);
+}
+
+.delivery-item:hover {
+    box-shadow: var(--shadow-sm);
+}
+
+.delivery-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 500;
+}
+
+.delivery-info .badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.badge.arbol {
+    background-color: #2b7a3a;
+    color: var(--light);
+}
+
+.badge.suelo {
+    background-color: #8a6d3b;
+    color: var(--light);
+}
+
+.delivery-metrics {
+    display: flex;
+    gap: 1rem;
+    color: var(--dark);
+}
+
+.delivery-metrics span {
+    font-weight: 600;
+}
+
+.delete-btn {
+    background: none;
+    border: none;
+    color: #a94442;
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.delete-btn:hover {
+    background-color: rgba(169, 68, 66, 0.1);
+    transform: scale(1.15);
+}
+
+/* --- CATÁLOGOS EDITABLES EN AJUSTES --- */
+.catalog-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    padding: 0.5rem;
+    border-radius: var(--radius-sm);
+    background-color: var(--primary-bg);
+}
+
+.catalog-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border);
+}
+
+.catalog-item span {
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.catalog-item-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.action-icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0.2rem;
+    border-radius: 4px;
+    transition: var(--transition);
+}
+
+.action-icon-btn:hover {
+    background-color: var(--border);
+    transform: scale(1.1);
+}
+
+.action-icon-btn.delete-icon {
+    color: #a94442;
+}
+
+.action-icon-btn.delete-icon:hover {
+    background-color: rgba(169, 68, 66, 0.1);
+}
+
+/* --- SUB-NAVEGACIÓN INTERNA (TRABAJOS FINCAS) --- */
+.sub-nav-container {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding: 0.25rem 0.25rem 0.75rem 0.25rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1.5px solid var(--border);
+    scrollbar-width: thin;
+}
+
+.sub-nav-btn {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--dark);
+    padding: 0.6rem 1.25rem;
+    border-radius: 50px;
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 0.9rem;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: var(--transition);
+}
+
+.sub-nav-btn:hover {
+    background-color: var(--primary-bg);
+    border-color: var(--primary-light);
+    transform: translateY(-1px);
+}
+
+.sub-nav-btn.active {
+    background-color: var(--primary);
+    border-color: var(--primary);
+    color: var(--light);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Caja placeholder moderna */
+.placeholder-box {
+    margin-top: 1.5rem;
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 3rem 2rem;
+    text-align: center;
+    background-color: var(--primary-bg);
+    color: var(--gray);
+    font-style: italic;
+    font-size: 0.95rem;
+}
