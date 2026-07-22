@@ -699,8 +699,11 @@ function renderizarListasAsignacion() {
                         <span>${t.nombre}</span>
                     </label>
                     <div style="display: flex; align-items: center; gap: 0.2rem;">
-                        <input type="number" name="tarifa-trabajador-${t.id}" step="any" min="0" value="${tarifa}" style="width: 60px; padding: 0.2rem; font-size: 0.85rem;" placeholder="8.00">
-                        <span style="font-size: 0.85rem; color: var(--gray);">€/h</span>
+                        <input type="number" id="tarifa-general-trabajador-${t.id}" name="tarifa-trabajador-${t.id}" step="any" min="0" value="${tarifa}" style="width: 60px; padding: 0.2rem; font-size: 0.85rem;" placeholder="8.00">
+                        <span style="font-size: 0.85rem; color: var(--gray); margin-right: 0.3rem;">€/h</span>
+                        ${estaAsignado ? `
+                        <button type="button" class="btn btn-secondary" onclick="abrirModalTarifasTrabajo(${t.id}, '${t.nombre}')" style="padding: 0.2rem 0.4rem; font-size: 0.75rem; height: auto; display: flex; align-items: center; gap: 0.1rem; line-height: 1;" title="Configurar tarifas por tipo de trabajo">⚙️ Labor</button>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -2297,3 +2300,80 @@ function toggleRegimenEdicion() {
     }
 }
 window.toggleRegimenEdicion = toggleRegimenEdicion;
+
+// 8. Tarifas por Trabajo
+async function abrirModalTarifasTrabajo(trabajadorId, nombre) {
+    if (!campanaSeleccionadaId) return;
+    
+    document.getElementById("modal-tarifa-trabajador-id").value = trabajadorId;
+    document.getElementById("modal-tarifa-trabajador-nombre").innerText = nombre;
+    
+    // Tarifa general fallback del input en pantalla
+    const inputG = document.getElementById(`tarifa-general-trabajador-${trabajadorId}`);
+    const tarifaGeneral = inputG ? parseFloat(inputG.value) || 8.0 : 8.0;
+    
+    const labores = ["RECOLECTA", "VARETAS", "TALA", "CURAR", "CURAR_VARETAS", "CURAR_HIERBA", "ABONO", "DESBROZAR", "RECOGER_PIEDRAS"];
+    
+    // Poner placeholders a todas
+    labores.forEach(lab => {
+        const inp = document.getElementById(`tarifa-trabajo-${lab}`);
+        if (inp) {
+            inp.value = "";
+            inp.placeholder = tarifaGeneral.toFixed(2);
+        }
+    });
+    
+    try {
+        const res = await fetch(`/api/campanas/${campanaSeleccionadaId}/trabajadores/${trabajadorId}/tarifas`);
+        const data = await res.json();
+        
+        labores.forEach(lab => {
+            const inp = document.getElementById(`tarifa-trabajo-${lab}`);
+            if (inp && data[lab] !== undefined && data[lab] !== null) {
+                inp.value = data[lab];
+            }
+        });
+    } catch (e) {
+        console.error("Error al cargar tarifas por trabajo:", e);
+    }
+    
+    document.getElementById("modal-tarifas-trabajo").style.display = "flex";
+}
+window.abrirModalTarifasTrabajo = abrirModalTarifasTrabajo;
+
+function cerrarModalTarifasTrabajo() {
+    document.getElementById("modal-tarifas-trabajo").style.display = "none";
+}
+window.cerrarModalTarifasTrabajo = cerrarModalTarifasTrabajo;
+
+async function guardarTarifasTrabajo(event) {
+    event.preventDefault();
+    const trabajadorId = document.getElementById("modal-tarifa-trabajador-id").value;
+    if (!campanaSeleccionadaId || !trabajadorId) return;
+    
+    const labores = ["RECOLECTA", "VARETAS", "TALA", "CURAR", "CURAR_VARETAS", "CURAR_HIERBA", "ABONO", "DESBROZAR", "RECOGER_PIEDRAS"];
+    
+    try {
+        const promesas = labores.map(async lab => {
+            const inp = document.getElementById(`tarifa-trabajo-${lab}`);
+            const val = inp && inp.value.trim() !== "" ? parseFloat(inp.value) : null;
+            
+            return fetch(`/api/campanas/${campanaSeleccionadaId}/trabajadores/${trabajadorId}/tarifas`, {
+                method: "PUT",
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ trabajo: lab, tarifa_hora: val })
+            });
+        });
+        
+        await Promise.all(promesas);
+        cerrarModalTarifasTrabajo();
+        alert("Tarifas por trabajo guardadas con éxito.");
+        
+        await cargarResumenDashboard();
+        await cargarResumenSaldos();
+    } catch (e) {
+        console.error("Error al guardar tarifas por trabajo:", e);
+        alert("Ocurrió un error al guardar las tarifas.");
+    }
+}
+window.guardarTarifasTrabajo = guardarTarifasTrabajo;

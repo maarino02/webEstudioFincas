@@ -83,6 +83,10 @@ class FincaTrabajadoresRequest(BaseModel):
 class TarifaRequest(BaseModel):
     tarifa_hora: float
 
+class TarifaTrabajoRequest(BaseModel):
+    trabajo: str
+    tarifa_hora: Optional[float] = None
+
 class PrecioCampanaRequest(BaseModel):
     precio_aceituna_kg: float
 
@@ -402,6 +406,21 @@ def update_precio_campana(campana_id: int, req: PrecioCampanaRequest):
 def update_tarifa_trabajador(campana_id: int, trabajador_id: int, req: TarifaRequest):
     try:
         database.actualizar_tarifa_trabajador(campana_id, trabajador_id, req.tarifa_hora)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/campanas/{campana_id}/trabajadores/{trabajador_id}/tarifas")
+def get_tarifas_trabajo(campana_id: int, trabajador_id: int):
+    try:
+        return database.obtener_tarifas_trabajo(campana_id, trabajador_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/campanas/{campana_id}/trabajadores/{trabajador_id}/tarifas")
+def update_tarifa_trabajo(campana_id: int, trabajador_id: int, req: TarifaTrabajoRequest):
+    try:
+        database.actualizar_tarifa_trabajo(campana_id, trabajador_id, req.trabajo, req.tarifa_hora)
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

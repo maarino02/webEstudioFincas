@@ -321,6 +321,18 @@ def init_db():
         FOREIGN KEY (trabajador_id) REFERENCES trabajadores(id) ON DELETE CASCADE
     )
     """)
+    # 4. Crear tabla de tarifas específicas por tipo de trabajo y jornalero por campaña
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS campana_trabajador_tarifas (
+        campana_id INTEGER NOT NULL,
+        trabajador_id INTEGER NOT NULL,
+        trabajo TEXT NOT NULL,
+        tarifa_hora REAL NOT NULL,
+        PRIMARY KEY (campana_id, trabajador_id, trabajo),
+        FOREIGN KEY (campana_id) REFERENCES campanas(id) ON DELETE CASCADE,
+        FOREIGN KEY (trabajador_id) REFERENCES trabajadores(id) ON DELETE CASCADE
+    )
+    """)
         
     conn.commit()
     conn.close()
@@ -746,9 +758,10 @@ def obtener_resumen_general(campana_id):
     precio_aceituna_kg = campana_row['precio_aceituna_kg'] if (campana_row and campana_row['precio_aceituna_kg']) else 0.0
     
     coste_mano_obra = conn.execute("""
-        SELECT SUM(h.horas * COALESCE(ct.tarifa_hora, 8.0))
+        SELECT SUM(h.horas * COALESCE(ctt.tarifa_hora, ct.tarifa_hora, 8.0))
         FROM registro_horas h
         LEFT JOIN campana_trabajadores ct ON h.campana_id = ct.campana_id AND h.trabajador_id = ct.trabajador_id
+        LEFT JOIN campana_trabajador_tarifas ctt ON h.campana_id = ctt.campana_id AND h.trabajador_id = ctt.trabajador_id AND h.trabajo = ctt.trabajo
         WHERE h.campana_id = ?
     """, (campana_id,)).fetchone()[0] or 0.0
     
@@ -1275,14 +1288,24 @@ def obtener_resumen_saldos(campana_id):
         ORDER BY t.nombre
     """, (campana_id,)).fetchall()
     
-    # 2. Calcular total de horas por trabajador
-    horas_rows = conn.execute("""
-        SELECT trabajador_id, SUM(horas) as total_horas
-        FROM registro_horas
-        WHERE campana_id = ?
-        GROUP BY trabajador_id
+    # 2. Calcular total de horas y devengado real por jornalero
+    devengado_rows = conn.execute("""
+        SELECT h.trabajador_id, 
+               SUM(h.horas) as total_horas,
+               SUM(h.horas * COALESCE(ctt.tarifa_hora, ct.tarifa_hora, 8.0)) as total_devengado
+        FROM registro_horas h
+        LEFT JOIN campana_trabajadores ct ON h.campana_id = ct.campana_id AND h.trabajador_id = ct.trabajador_id
+        LEFT JOIN campana_trabajador_tarifas ctt ON h.campana_id = ctt.campana_id AND h.trabajador_id = ctt.trabajador_id AND h.trabajo = ctt.trabajo
+        WHERE h.campana_id = ?
+        GROUP BY h.trabajador_id
     """, (campana_id,)).fetchall()
-    horas_dict = {row['trabajador_id']: row['total_horas'] for row in horas_rows}
+    
+    devengado_dict = {
+        row['trabajador_id']: {
+            'total_horas': row['total_horas'] or 0.0, 
+            'total_devengado': row['total_devengado'] or 0.0
+        } for row in devengado_rows
+    }
     
     # 3. Calcular total de pagos/anticipos por trabajador
     pagos_rows = conn.execute("""
@@ -1299,11 +1322,10 @@ def obtener_resumen_saldos(campana_id):
         t_nombre = t['nombre']
         tarifa = t['tarifa_hora']
         
-        t_horas = horas_dict.get(tid, 0.0)
+        info_dev = devengado_dict.get(tid, {'total_horas': 0.0, 'total_devengado': 0.0})
+        t_horas = info_dev['total_horas']
+        t_devengado = info_dev['total_devengado']
         t_pagado = pagos_dict.get(tid, 0.0)
-        
-        # Lo que ha ganado (devengado)
-        t_devengado = t_horas * tarifa
         
         # Saldo final: lo que le debemos (+) o lo que él nos debe (-)
         t_saldo = t_devengado - t_pagado
@@ -1313,11 +1335,40 @@ def obtener_resumen_saldos(campana_id):
             "trabajador_nombre": t_nombre,
             "tarifa_hora": tarifa,
             "total_horas": t_horas,
-            "total_devengado": t_devengado,
+            "total_devengado": round(t_devengado, 2),
             "total_pagado": t_pagado,
-            "saldo_pendiente": t_saldo
+            "saldo_pendiente": round(t_saldo, 2)
         })
         
     conn.close()
     return saldos
+
+def obtener_tarifas_trabajo(campana_id, trabajador_id):
+    """Devuelve las tarifas específicas registradas para cada labor de un jornalero en una campaña."""
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT trabajo, tarifa_hora 
+        FROM campana_trabajador_tarifas 
+        WHERE campana_id = ? AND trabajador_id = ?
+    """, (campana_id, trabajador_id)).fetchall()
+    conn.close()
+    return {r['trabajo']: r['tarifa_hora'] for r in rows}
+
+def actualizar_tarifa_trabajo(campana_id, trabajador_id, trabajo, tarifa_hora):
+    """Guarda, actualiza o elimina la tarifa horaria para una labor concreta de un trabajador."""
+    conn = get_connection()
+    if tarifa_hora is None or tarifa_hora == "" or float(tarifa_hora) < 0:
+        # Si es vacío o no válido, se elimina para que herede la general
+        conn.execute("""
+            DELETE FROM campana_trabajador_tarifas 
+            WHERE campana_id = ? AND trabajador_id = ? AND trabajo = ?
+        """, (campana_id, trabajador_id, trabajo))
+    else:
+        conn.execute("""
+            INSERT INTO campana_trabajador_tarifas (campana_id, trabajador_id, trabajo, tarifa_hora)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(campana_id, trabajador_id, trabajo) DO UPDATE SET tarifa_hora = excluded.tarifa_hora
+        """, (campana_id, trabajador_id, trabajo, float(tarifa_hora)))
+    conn.commit()
+    conn.close()
 
